@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Neon Swap: Time Attack</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --grid-bg: #1e1e24;
+            --text-color: #ffffff;
+            --accent: #00ffcc;
+        }
+        
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Background Canvas */
+        #bgCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        #game-container {
+            position: relative;
+            display: flex;
+            flex-direction: row;
+            gap: 20px;
+            align-items: flex-start;
+            z-index: 10;
+        }
+
+        canvas#gameCanvas {
+            background-color: var(--grid-bg);
+            border: 2px solid #333;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            display: block;
+            cursor: pointer;
+        }
+
+        #ui-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 140px;
+        }
+
+        .stat-box {
+            background: #2a2a30;
+            padding: 10px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #aaa;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        #timer-box {
+            border-left-color: #ff0055;
+            display: none; 
+        }
+
+        #controls-hint {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #888;
+            line-height: 1.5;
+        }
+
+        #player-ticker {
+            margin-top: 10px;
+            font-size: 11px;
+            color: #666;
+            height: 40px;
+            overflow: hidden;
+            border-top: 1px solid #333;
+            padding-top: 5px;
+            display: none; /* Hidden by default */
+        }
+        
+        .menu-btn-small {
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            padding: 8px;
+            cursor: pointer;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-top: auto; 
+        }
+        .menu-btn-small:hover { background: #444; }
+
+        /* Overlay */
+        #overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+        }
+
+        h1 { margin-bottom: 10px; font-size: 3rem; text-shadow: 0 0 10px var(--accent); color: var(--accent); }
+        h2 { margin-bottom: 20px; color: #fff; }
+        
+        .btn {
+            background: transparent;
+            color: white;
+            border: 2px solid var(--accent);
+            padding: 15px 30px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 2px;
+            width: 220px;
+            text-align: center;
+        }
+        .btn:hover { background: var(--accent); color: black; box-shadow: 0 0 15px var(--accent); }
+
+        /* Leaderboard Two Column Layout */
+        #leaderboard-container {
+            display: flex;
+            flex-direction: row;
+            width: 90%;
+            max-width: 800px;
+            gap: 20px;
+            background: #111;
+            padding: 20px;
+            border: 1px solid #333;
+            margin-bottom: 20px;
+        }
+        
+        .lb-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .lb-row {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            padding: 6px 0;
+            border-bottom: 1px solid #333;
+            font-family: monospace;
+            font-size: 14px;
+        }
+        .lb-row.highlight { color: var(--accent); font-weight: bold; }
+        .lb-rank { width: 30px; color: #888; }
+        .lb-name { flex: 1; text-align: left; }
+        .lb-score { text-align: right; }
+        
+        #next-round-timer {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        /* High Scores View */
+        #high-scores-content {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+        }
+        .score-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 80%;
+            max-width: 600px;
+            margin-bottom: 30px;
+        }
+        .score-card {
+            background: #222;
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 8px;
+        }
+        .score-card h3 { margin-top: 0; color: var(--accent); font-size: 1.2rem; }
+        .score-detail { display: flex; justify-content: space-between; margin: 5px 0; font-family: monospace; font-size: 16px; }
+
+        @media (max-width: 600px) {
+            #game-container { flex-direction: column; align-items: center; gap: 10px; }
+            #ui-panel { flex-direction: row; width: 100%; justify-content: space-around; min-width: auto; flex-wrap: wrap; }
+            #controls-hint { display: none; }
+            #player-ticker { display: none; }
+            .stat-value { font-size: 18px; }
+            h1 { font-size: 2rem; }
+            #leaderboard-container { flex-direction: column; width: 95%; }
+            .score-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bgCanvas"></canvas>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="360" height="600"></canvas>
+        
+        <div id="ui-panel">
+            <div class="stat-box">
+                <div class="stat-label">Score</div>
+                <div class="stat-value" id="score">0</div>
+            </div>
+            <div class="stat-box" id="level-box">
+                <div class="stat-label">Level</div>
+                <div class="stat-value" id="level">1</div>
+            </div>
+            <div class="stat-box" id="timer-box">
+                <div class="stat-label">Time</div>
+                <div class="stat-value" id="timer">90</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Combo</div>
+                <div class="stat-value" id="combo" style="color: #FF0055">0</div>
+            </div>
+
+            <div id="player-ticker">
+                Online: <span id="player-count">0</span><br>
+                <span id="player-log">Connecting...</span>
+            </div>
+
+            <button class="menu-btn-small" onclick="forceMenu()">Exit to Menu</button>
+
+            <div id="controls-hint">
+                <strong>Controls:</strong><br>
+                Drag blocks horiontally.<br>
+                Release to match.<br>
+                Enter: Speed Up Stack
+            </div>
+        </div>
+    </div>
+
+    <!-- Menu / Game Over Overlay -->
+    <div id="overlay">
+        <!-- Main Menu -->
+        <div id="menu-content" style="display:flex; flex-direction:column; align-items:center;">
+            <h1>NEON SWAP</h1>
+            <p style="margin-bottom: 30px; color: #ccc;">A game by Antwand T. Howard</p>
+            <button class="btn" onclick="startGame('endless')">Endless Mode</button>
+            <button class="btn" onclick="joinTimeAttack(true)">Time Attack</button>
+            <!-- <button class="btn" onclick="startGame('puzzle')">Puzzle Mode</button> -->
+            <button class="btn" onclick="showHighScores()">High Scores</button>
+        </div>
+
+        <!-- Joining Server Overlay -->
+        <div id="joining-content" style="display:none; flex-direction:column; align-items:center;">
+            <h1>JOINING SERVER...</h1>
+            <p style="color: #aaa; animation: pulse 1s infinite;">Connecting to lobby</p>
+        </div>
+
+        <!-- Leaderboard (Time Attack) -->
+        <div id="leaderboard-content" style="display:none; flex-direction:column; align-items:center; width:100%;">
+            <h1 id="end-title">TIME UP!</h1>
+            <h2 id="final-score">Score: 0</h2>
+            <div id="leaderboard-container">
+                <div class="lb-column" id="lb-col-1"></div>
+                <div class="lb-column" id="lb-col-2"></div>
+            </div>
+            <div id="next-round-timer">Next round in 15...</div>
+            <button class="btn" onclick="resetToMenu()">Main Menu</button>
+        </div>
+
+        <!-- Solo Game Over (Endless/Puzzle) -->
+        <div id="solo-content" style="display:none; flex-direction:column; align-items:center; width:100%;">
+            <h1 id="solo-title">GAME OVER</h1>
+            <h2 id="solo-score">Score: 0</h2>
+            <p id="solo-stats" style="color:#aaa; font-family:monospace; margin-bottom:20px;"></p>
+            <button class="btn" onclick="startGame(gameMode)">Try Again</button>
+            <button class="btn" onclick="resetToMenu()">Main Menu</button>
+        </div>
+
+        <!-- High Scores View -->
+        <div id="high-scores-content" style="display:none; flex-direction:column; align-items:center; width:100%;">
+            <h1>HIGH SCORES</h1>
+            <div class="score-grid">
+                <div class="score-card">
+                    <h3>Time Attack</h3>
+                    <div class="score-detail"><span>Best Score:</span><span id="hs-time-score">0</span></div>
+                    <div class="score-detail"><span>Max Combo:</span><span id="hs-time-combo">0</span></div>
+                    <div class="score-detail"><span>Max Block:</span><span id="hs-time-block">0</span></div>
+                </div>
+                <div class="score-card">
+                    <h3>Endless</h3>
+                    <div class="score-detail"><span>Best Score:</span><span id="hs-end-score">0</span></div>
+                    <div class="score-detail"><span>Max Combo:</span><span id="hs-end-combo">0</span></div>
+                    <div class="score-detail"><span>Max Block:</span><span id="hs-end-block">0</span></div>
+                </div>
+            </div>
+            <button class="btn" onclick="resetToMenu()">Back</button>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * NEON SWAP - Persistence Update
+         */
+        
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        
+        // UI Elements
+        const scoreEl = document.getElementById('score');
+        const levelEl = document.getElementById('level');
+        const timerEl = document.getElementById('timer');
+        const comboEl = document.getElementById('combo');
+        const overlay = document.getElementById('overlay');
+        const menuContent = document.getElementById('menu-content');
+        const joiningContent = document.getElementById('joining-content');
+        const lbContent = document.getElementById('leaderboard-content');
+        const soloContent = document.getElementById('solo-content');
+        const hsContent = document.getElementById('high-scores-content');
+        const lbCol1 = document.getElementById('lb-col-1');
+        const lbCol2 = document.getElementById('lb-col-2');
+        const levelBox = document.getElementById('level-box');
+        const timerBox = document.getElementById('timer-box');
+        const nextRoundTimerEl = document.getElementById('next-round-timer');
+        const endTitle = document.getElementById('end-title');
+        const soloTitle = document.getElementById('solo-title');
+        const playerCountEl = document.getElementById('player-count');
+        const playerLogEl = document.getElementById('player-log');
+        const playerTicker = document.getElementById('player-ticker');
+
+        let animationFrameId = null;
+
+        // --- Audio System ---
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+        const SCALE_INTERVALS = [2, 2, 1, 2, 2, 2, 1];
+        const BASE_C4 = 261.63;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioContext();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+        }
+
+        function getScaleFreq(scaleIndex) {
+            let rangeIndex = scaleIndex % 21; 
+            let octaves = Math.floor(rangeIndex / 7);
+            let degree = rangeIndex % 7;
+            let semitones = octaves * 12;
+            for (let i = 0; i < degree; i++) semitones += SCALE_INTERVALS[i];
+            return BASE_C4 * Math.pow(2, semitones / 12);
+        }
+
+        function playTone(freq, startTime, duration) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+        }
+
+        function playComboSound(comboIndex, delay = 0) {
+            initAudio();
+            const now = audioCtx.currentTime + delay;
+            let rootIndex = comboIndex;
+            let thirdIndex = comboIndex + 2;
+            let fifthIndex = comboIndex + 4;
+            playTone(getScaleFreq(rootIndex), now, 0.1);
+            playTone(getScaleFreq(thirdIndex), now + 0.1, 0.1);
+            playTone(getScaleFreq(fifthIndex), now + 0.2, 0.1);
+        }
+
+        function playLandSound() {
+            if (!audioCtx) return;
+            const t = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.frequency.setValueAtTime(100, t);
+            osc.frequency.exponentialRampToValueAtTime(0.01, t + 0.08);
+            gain.gain.setValueAtTime(0.12, t);
+            gain.gain.linearRampToValueAtTime(0, t + 0.08);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(t);
+            osc.stop(t + 0.08);
+        }
+
+        // --- Game Constants & State ---
+        const COLS = 6;
+        const ROWS = 12; 
+        const BLOCK_SIZE = 50; 
+        const COLORS = [
+            '#FF0055', '#00FFDD', '#AAFF00', '#FFDD00', '#AA00FF', '#3366FF'
+        ];
+
+        let grid = []; 
+        let incomingRow = []; 
+        let fadingBlocks = []; 
+
+        let state = 'MENU'; 
+        let gameMode = 'endless'; 
+        let score = 0;
+        let gameLevel = 1;
+        let lastTime = 0;
+        let riseOffset = 0; 
+        let riseSpeed = 0.3; 
+        let manualRise = false;
+        
+        let timeSinceStart = 0; 
+        const BASE_RISE_SPEED = 0.3;
+
+        let currentCombo = 0; 
+        let maxComboInRound = 0;
+        let maxBlockInRound = 0;
+        let comboTimer = 0; 
+        
+        let timeLeft = 90; 
+        let countdownVal = 3; 
+        let leaderboardInterval = null;
+        let nextRoundCountdown = 15;
+
+        let wipeTimer = 0;
+        const WIPE_DURATION = 1.5; 
+
+        // --- Stats & High Scores ---
+        let highScores = {
+            time: { score: 0, combo: 0, block: 0 },
+            endless: { score: 0, combo: 0, block: 0 }
+        };
+
+        function loadHighScores() {
+            try {
+                const saved = localStorage.getItem('neonswap_scores');
+                if (saved) {
+                    highScores = JSON.parse(saved);
+                }
+            } catch (e) {
+                console.log('Local storage disabled or empty');
+            }
+        }
+        function saveHighScores() {
+            try {
+                localStorage.setItem('neonswap_scores', JSON.stringify(highScores));
+            } catch (e) {
+                console.log('Cannot save to local storage');
+            }
+        }
+        loadHighScores();
+
+        // --- Multiplayer / Bot System ---
+        const NAMES_PARTS = ["Neo", "Cyber", "Block", "Swap", "Hex", "Grid", "Zen", "Hyper", "Flux", "Core"];
+        const NAMES_SUFFIX = ["Player", "Master", "Bot", "User", "Runner", "Star", "Zero", "One"];
+        
+        class Bot {
+            constructor() {
+                let p1 = NAMES_PARTS[Math.floor(Math.random() * NAMES_PARTS.length)];
+                let p2 = NAMES_SUFFIX[Math.floor(Math.random() * NAMES_SUFFIX.length)];
+                let num = Math.floor(Math.random() * 999);
+                this.name = `${p1}${p2}${num}`;
+                
+                // Skill Logic
+                let u = 0, v = 0;
+                while(u === 0) u = Math.random(); 
+                while(v === 0) v = Math.random();
+                let z = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+                
+                this.skill = 0.36 + z * 0.2;
+                if(this.skill < 0.01) this.skill = 0.05;
+                // if(this.skill > 1.0) this.skill = 1.0;
+            }
+
+            generateScore() {
+                let base = this.skill * 15500;
+                let variance = 0.9 + Math.random() * 0.2;
+                let final = Math.floor(base * variance);
+                return final > 0 ? final : 0;
+            }
+        }
+
+        let bots = [];
+        let mpTimer = 0;
+
+        function initBots() {
+            bots = [];
+            for(let i=0; i<15; i++) bots.push(new Bot());
+            updatePlayerCount();
+        }
+        initBots();
+
+        // Background Animation State
+        let bgSquares = [];
+
+        let inputState = {
+            active: false,
+            startR: -1, startC: -1,
+            startX: 0, startY: 0, 
+            currX: 0, currY: 0, 
+            offsetX: 0, offsetY: 0 
+        };
+
+        class BgSquare {
+            constructor() {
+                this.init();
+            }
+            init() {
+                this.size = Math.random() * 50 + 20;
+                this.x = Math.random() * window.innerWidth;
+                this.y = Math.random() * window.innerHeight;
+                this.dx = (Math.random() - 0.5) * 1.5;
+                this.dy = (Math.random() - 0.5) * 1.5;
+                this.opacity = 0;
+                this.fadePhase = Math.random() * Math.PI * 2;
+                this.fadeSpeed = 0.005 + Math.random() * 0.01;
+            }
+            update() {
+                this.x += this.dx;
+                this.y += this.dy;
+                if(this.x < -100 || this.x > window.innerWidth + 100) this.dx *= -1;
+                if(this.y < -100 || this.y > window.innerHeight + 100) this.dy *= -1;
+                this.fadePhase += this.fadeSpeed;
+                this.opacity = (Math.sin(this.fadePhase) + 1) / 2 * 0.2; 
+            }
+            draw(ctx) {
+                ctx.strokeStyle = `rgba(128, 128, 128, ${this.opacity})`;
+                ctx.lineWidth = 2;
+                ctx.strokeRect(this.x, this.y, this.size, this.size);
+            }
+        }
+
+        class Block {
+            constructor(type) {
+                this.type = type; 
+                this.state = 'IDLE'; 
+                this.offsetY = 0; 
+                this.scale = 1.0;
+                this.opacity = 1.0;
+                this.isWhite = false;
+                this.visualOffsetX = 0;
+                this.visualOffsetY = 0;
+                this.wipeDelay = 0;
+            }
+        }
+
+        function initGrid(empty = false, full = false) {
+            grid = [];
+            for (let r = 0; r < ROWS + 1; r++) { 
+                let row = [];
+                for (let c = 0; c < COLS; c++) {
+                    let shouldFill = full || (!empty && r >= ROWS / 2);
+                    if (shouldFill) {
+                        row.push(generateNonMatchingBlock(c, r, row, grid));
+                    } else {
+                        row.push(new Block(-1)); 
+                    }
+                }
+                grid.push(row);
+            }
+            generateIncomingRow();
+        }
+
+        function generateIncomingRow() {
+            incomingRow = [];
+            for (let c = 0; c < COLS; c++) {
+                let type;
+                do {
+                    type = Math.floor(Math.random() * COLORS.length);
+                } while (
+                    (c > 0 && incomingRow[c-1].type === type) || 
+                    (grid[ROWS-1] && grid[ROWS-1][c].type === type)
+                );
+                incomingRow.push(new Block(type));
+            }
+        }
+        
+        function generateNonMatchingBlock(c, r, currentRow, currentGrid) {
+            let type;
+            do {
+                type = Math.floor(Math.random() * COLORS.length);
+            } while (
+                (c > 0 && currentRow[c-1].type === type) || 
+                (r > 0 && currentGrid[r-1] && currentGrid[r-1][c].type === type)
+            );
+            return new Block(type);
+        }
+
+        function createPuzzleGrid() {
+            initGrid(true); 
+            // Create a solvable pattern with no initial matches
+            for(let r = 6; r < ROWS; r++) {
+                for(let c = 0; c < COLS; c++) {
+                    let typeIdx = (r + c) % 6;
+                    grid[r][c] = new Block(typeIdx);
+                }
+            }
+        }
+
+        function joinTimeAttack(initial) {
+            initAudio();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            clearInterval(leaderboardInterval);
+            
+            // Show Loading
+            state = 'JOINING';
+            overlay.style.display = 'flex';
+            menuContent.style.display = 'none';
+            lbContent.style.display = 'none';
+            joiningContent.style.display = 'flex';
+            
+            playerTicker.style.display = 'block';
+            
+            // Simulate Server Connect Delay
+            setTimeout(() => {
+                joiningContent.style.display = 'none';
+                
+                // Random Entry Point (-10 to 90)
+                let entry = initial? Math.floor(Math.random() * 101) - 10 : 90;
+                
+                if (entry <= 0) {
+                    // Joined late
+                    score = 0;
+                    gameMode = 'time'; // Set context for leaderboard
+                    showLeaderboardScreen();
+                } else {
+                    // Join Active
+                    startGame('time', entry);
+                }
+                
+            }, initial? 1500 : 0);
+            
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        function startGame(mode, specificTime) {
+            initAudio();
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            
+            clearInterval(leaderboardInterval);
+            gameMode = mode;
+            score = 0;
+            gameLevel = 1;
+            riseOffset = 0;
+            currentCombo = 0;
+            maxComboInRound = 0;
+            maxBlockInRound = 0;
+            comboTimer = 0;
+            fadingBlocks = []; 
+            wipeTimer = 0;
+            timeSinceStart = 0;
+            lastTime = performance.now();
+            
+            if (gameMode === 'time') {
+                playerTicker.style.display = 'block';
+            } else {
+                playerTicker.style.display = 'none';
+            }
+            
+            if (gameMode === 'puzzle') {
+                riseSpeed = 0;
+                levelBox.style.display = 'block';
+                timerBox.style.display = 'none';
+                createPuzzleGrid();
+                state = 'PLAYING'; // Puzzles start immediately
+            } else if (gameMode === 'time') {
+                riseSpeed = 0; 
+                timeLeft = specificTime !== undefined ? specificTime : 90;
+                levelBox.style.display = 'none';
+                timerBox.style.display = 'block';
+                timerEl.innerText = Math.ceil(timeLeft);
+                initGrid(false, true); 
+		if (timeLeft == 90) {
+                	state = 'COUNTDOWN';
+                	countdownVal = 3;
+		}
+		else {
+			state = 'PLAYING'; 
+		}
+            } else {
+                riseSpeed = BASE_RISE_SPEED;
+                levelBox.style.display = 'block';
+                timerBox.style.display = 'none';
+                initGrid();
+                state = 'COUNTDOWN';
+                countdownVal = 3;
+            }
+            
+            updateUI();
+            overlay.style.display = 'none';
+            menuContent.style.display = 'none';
+            lbContent.style.display = 'none';
+            soloContent.style.display = 'none';
+            hsContent.style.display = 'none';
+            joiningContent.style.display = 'none';
+            
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        function forceMenu() {
+            resetToMenu();
+        }
+
+        function resetToMenu() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            clearInterval(leaderboardInterval);
+            state = 'MENU';
+            initGrid(true); 
+            
+            bgSquares = [];
+            for(let i=0; i<25; i++) bgSquares.push(new BgSquare());
+
+            overlay.style.display = 'flex';
+            menuContent.style.display = 'flex';
+            lbContent.style.display = 'none';
+            soloContent.style.display = 'none';
+            hsContent.style.display = 'none';
+            joiningContent.style.display = 'none';
+            lastTime = performance.now();
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        function showHighScores() {
+            menuContent.style.display = 'none';
+            hsContent.style.display = 'flex';
+            
+            document.getElementById('hs-time-score').innerText = highScores.time.score;
+            document.getElementById('hs-time-combo').innerText = highScores.time.combo;
+            document.getElementById('hs-time-block').innerText = highScores.time.block;
+            
+            document.getElementById('hs-end-score').innerText = highScores.endless.score;
+            document.getElementById('hs-end-combo').innerText = highScores.endless.combo;
+            document.getElementById('hs-end-block').innerText = highScores.endless.block;
+        }
+
+        function resize() {
+            const aspect = COLS / ROWS;
+            let h = window.innerHeight * 0.95;
+            let w = h * aspect;
+            if (w > window.innerWidth) {
+                w = window.innerWidth * 0.95;
+                h = w / aspect;
+            }
+            canvas.style.width = `${w}px`;
+            canvas.style.height = `${h}px`;
+            
+            bgCanvas.width = window.innerWidth;
+            bgCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function loop(timestamp) {
+            animationFrameId = requestAnimationFrame(loop);
+            
+            const dt = timestamp - lastTime;
+            lastTime = timestamp;
+            const safeDt = Math.min(dt, 50); 
+            
+            update(safeDt / 1000); 
+            draw();
+        }
+
+        function updateMultiplayer(dt) {
+            mpTimer += dt;
+            if (mpTimer > 2.0) { 
+                mpTimer = 0;
+                if (Math.random() > 0.6) {
+                    let change = Math.random() > 0.5 ? 1 : -1;
+                    let currentCount = bots.length + 1; 
+                    
+                    if (change === 1 && currentCount < 20) {
+                        let newBot = new Bot();
+                        bots.push(newBot);
+                        playerLogEl.innerText = `${newBot.name} joined`;
+                    } else if (change === -1 && currentCount > 10) {
+                        let idx = Math.floor(Math.random() * bots.length);
+                        let removed = bots[idx];
+                        bots.splice(idx, 1);
+                        playerLogEl.innerText = `${removed.name} left`;
+                    }
+                    updatePlayerCount();
+                }
+            }
+        }
+
+        function updatePlayerCount() {
+            playerCountEl.innerText = bots.length + 1;
+        }
+
+        function update(dt) {
+            if (gameMode === 'time') {
+                updateMultiplayer(dt);
+            }
+            
+            bgSquares.forEach(s => s.update());
+
+            if (state === 'MENU' || state === 'LEADERBOARD' || state === 'GAME_OVER' || state === 'JOINING') return;
+
+            if (state === 'COUNTDOWN') {
+                countdownVal -= dt;
+                if (countdownVal <= 0) {
+                    state = 'PLAYING';
+                }
+                return;
+            }
+
+            if (state === 'WIPE_ANIMATION') {
+                updateWipe(dt);
+                return;
+            }
+
+            for (let i = fadingBlocks.length - 1; i >= 0; i--) {
+                let b = fadingBlocks[i];
+                b.scale += 0.015;
+                b.opacity -= 0.015;
+                if (b.opacity <= 0) {
+                    fadingBlocks.splice(i, 1);
+                }
+            }
+            
+            for(let r=0; r<ROWS; r++){
+                for(let c=0; c<COLS; c++){
+                    let b = grid[r][c];
+                    if (b.type !== -1) {
+                        b.visualOffsetX *= 0.7; 
+                        b.visualOffsetY *= 0.7;
+                        if(Math.abs(b.visualOffsetX) < 0.5) b.visualOffsetX = 0;
+                        if(Math.abs(b.visualOffsetY) < 0.5) b.visualOffsetY = 0;
+                    }
+                }
+            }
+
+            if (state === 'PLAYING') {
+                updatePlaying(dt);
+            }
+        }
+
+        function updateWipe(dt) {
+            wipeTimer += dt;
+            let finished = true;
+
+            for(let r=0; r<ROWS; r++){
+                for(let c=0; c<COLS; c++){
+                    let b = grid[r][c];
+                    if (b.type !== -1) {
+                        if (wipeTimer > b.wipeDelay) {
+                            b.opacity -= dt * 2; 
+                            if (b.opacity < 0) b.opacity = 0;
+                        }
+                        if (b.opacity > 0) finished = false;
+                    }
+                }
+            }
+
+            if (finished) {
+                showLeaderboardScreen();
+            }
+        }
+
+        function checkPuzzleStatus() {
+            let totalBlocks = 0;
+            let colorCounts = [0,0,0,0,0,0];
+            
+            for(let r=0; r<ROWS; r++) {
+                for(let c=0; c<COLS; c++) {
+                    let t = grid[r][c].type;
+                    if(t !== -1) {
+                        totalBlocks++;
+                        colorCounts[t]++;
+                    }
+                }
+            }
+            
+            if (totalBlocks === 0) {
+                // Puzzle Cleared
+                score += 1000;
+                gameLevel++;
+                updateUI();
+                createPuzzleGrid(); // Next level
+                return;
+            }
+            
+            // Check for potential moves
+            let maxCount = 0;
+            for(let i=0; i<6; i++) if(colorCounts[i] > maxCount) maxCount = colorCounts[i];
+            
+            if (maxCount < 3) {
+                // Game Over - No Matches Possible
+                state = 'GAME_OVER';
+                soloTitle.innerText = "NO MOVES!";
+                showLeaderboardScreen();
+            }
+        }
+
+        function updatePlaying(dt) {
+            let isAnimating = fadingBlocks.length > 0;
+
+            if (gameMode === 'time') {
+                timeLeft -= dt;
+                if (timeLeft <= 0) {
+                    timeLeft = 0;
+                    timerEl.innerText = "0";
+                    startWipe();
+                    return;
+                }
+                timerEl.innerText = Math.ceil(timeLeft);
+                if (!isAnimating) {
+                    for(let c=0; c<COLS; c++) {
+                        if (grid[0][c].type === -1) {
+                            let type = Math.floor(Math.random() * COLORS.length);
+                            grid[0][c] = new Block(type);
+                            grid[0][c].offsetY = -BLOCK_SIZE; 
+                            grid[0][c].state = 'FALLING';
+                        }
+                    }
+                }
+            }
+
+            if (gameMode === 'endless') {
+                timeSinceStart += dt;
+                riseSpeed = BASE_RISE_SPEED * Math.pow(1.01, timeSinceStart / 2);
+
+                if (!isAnimating) {
+                    let speed = manualRise ? 5.0 : riseSpeed;
+                    riseOffset += speed;
+                    if (riseOffset >= BLOCK_SIZE) {
+                        riseOffset -= BLOCK_SIZE;
+                        insertRow();
+                        if(inputState.active) {
+                            inputState.startR--;
+                            if(inputState.startR < 0) cancelDrag();
+                        }
+                    }
+                }
+            }
+
+            let isFalling = false;
+            if (!isAnimating) {
+                isFalling = applyGravity();
+            }
+
+            let matchGroups = [];
+            if (!isFalling && !inputState.active) {
+                matchGroups = findMatchGroups();
+                if (matchGroups.length > 0) {
+                    comboTimer = 0; 
+                    matchGroups.forEach((group, i) => {
+                        triggerMatchGroup(group, i); 
+                    });
+                }
+            }
+
+            if (!isFalling && matchGroups.length === 0 && !isAnimating) {
+                comboTimer += dt;
+                if (comboTimer > 0.15) { 
+                    if (currentCombo > 0) {
+                        currentCombo = 0;
+                        comboEl.innerText = "";
+                    }
+                }
+            } else {
+                comboTimer = 0;
+            }
+
+            // Puzzle Mode Specific Checks (when board is settled)
+            if (gameMode === 'puzzle' && !isFalling && matchGroups.length === 0 && !isAnimating && !inputState.active) {
+                checkPuzzleStatus();
+            }
+
+            // Endless/Puzzle Game Over from Overflow
+            if (gameMode !== 'time' && !isFalling && !inputState.active && !isAnimating && matchGroups.length === 0) {
+                for(let c=0; c<COLS; c++) {
+                    if (grid[0][c].type !== -1 && grid[0][c].state === 'IDLE') {
+                        startWipe();
+                        return; 
+                    }
+                }
+            }
+        }
+
+        function startWipe() {
+            state = 'WIPE_ANIMATION';
+            wipeTimer = 0;
+            
+            for(let r=0; r<ROWS; r++){
+                for(let c=0; c<COLS; c++){
+                    let b = grid[r][c];
+                    if (b.type !== -1) {
+                        let dist = c + (ROWS - 1 - r);
+                        b.wipeDelay = dist * 0.05; 
+                    }
+                }
+            }
+        }
+
+        function showLeaderboardScreen() {
+            if (score === 0 && gameMode !== 'puzzle' && gameMode !== 'time') {
+                resetToMenu();
+                return;
+            }
+
+            if (gameMode === 'time' || gameMode === 'endless') {
+                let key = (gameMode === 'time') ? 'time' : 'endless';
+                if (score > highScores[key].score) highScores[key].score = score;
+                if (maxComboInRound > highScores[key].combo) highScores[key].combo = maxComboInRound;
+                if (maxBlockInRound > highScores[key].block) highScores[key].block = maxBlockInRound;
+                saveHighScores();
+            }
+
+            if (gameMode === 'time') {
+                state = 'LEADERBOARD';
+                overlay.style.display = 'flex';
+                menuContent.style.display = 'none';
+                lbContent.style.display = 'flex';
+                soloContent.style.display = 'none';
+                joiningContent.style.display = 'none';
+                
+                document.getElementById('final-score').innerText = `Your Score: ${score}`;
+                generateLeaderboard();
+                startCountdown();
+            } else {
+                state = 'GAME_OVER';
+                overlay.style.display = 'flex';
+                menuContent.style.display = 'none';
+                lbContent.style.display = 'none';
+                soloContent.style.display = 'flex';
+                joiningContent.style.display = 'none';
+                
+                if (gameMode !== 'puzzle') soloTitle.innerText = "GAME OVER"; 
+                // Note: checkPuzzleStatus sets "NO MOVES!" if triggered there.
+                
+                document.getElementById('solo-score').innerText = `Score: ${score}`;
+                document.getElementById('solo-stats').innerHTML = `Max Combo: ${maxComboInRound}<br>Max Chain: ${maxBlockInRound}`;
+            }
+        }
+
+        function triggerMatchGroup(matches, index = 0) {
+            currentCombo++; 
+            if(currentCombo > maxComboInRound) maxComboInRound = currentCombo;
+            if(matches.length > maxBlockInRound) maxBlockInRound = matches.length;
+
+            playComboSound(currentCombo - 1, index * 0.15);
+
+            let points = matches.length * currentCombo;
+            score += points;
+            
+            comboEl.innerText = (currentCombo > 0) ? `x${currentCombo}` : "";
+            comboEl.style.transform = "scale(1.5)";
+            setTimeout(() => comboEl.style.transform = "scale(1)", 300); 
+
+            updateUI();
+            
+            matches.forEach(m => {
+                let b = grid[m.r][m.c];
+                let ghost = {
+                    r: m.r,
+                    c: m.c,
+                    type: b.type,
+                    scale: 1.0,
+                    opacity: 1.0,
+                    visualOffsetX: b.visualOffsetX,
+                    visualOffsetY: b.visualOffsetY,
+                    offsetY: b.offsetY
+                };
+                fadingBlocks.push(ghost);
+                grid[m.r][m.c] = new Block(-1);
+            });
+        }
+
+        function applyGravity() {
+            let moved = false;
+            let landed = false;
+            for (let c = 0; c < COLS; c++) {
+                for (let r = ROWS - 1; r >= 0; r--) {
+                    let block = grid[r][c];
+                    if (block.type === -1 && r > 0) {
+                        let above = grid[r-1][c];
+                        let isDraggingAbove = (inputState.active && inputState.startR === r-1 && inputState.startC === c);
+                        
+                        if (above.type !== -1 && above.state === 'IDLE' && !isDraggingAbove) {
+                            grid[r][c] = above;
+                            grid[r-1][c] = new Block(-1);
+                            grid[r][c].offsetY = -BLOCK_SIZE;
+                            grid[r][c].state = 'FALLING';
+                            moved = true;
+                        }
+                    }
+                    if (block.state === 'FALLING') {
+                        block.offsetY += 16; 
+                        if (block.offsetY >= 0) {
+                            block.offsetY = 0;
+                            block.state = 'IDLE';
+                            landed = true;
+                        } else {
+                            moved = true; 
+                        }
+                    }
+                }
+            }
+            if (landed) playLandSound();
+            return moved;
+        }
+
+        function insertRow() {
+            for (let r = 0; r < ROWS - 1; r++) {
+                grid[r] = grid[r+1];
+            }
+            grid[ROWS-1] = incomingRow;
+            generateIncomingRow();
+        }
+
+        function findMatchGroups() {
+            let marked = Array(ROWS).fill().map(() => Array(COLS).fill(false));
+
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS - 2; c++) {
+                    let t = grid[r][c].type;
+                    if (t === -1 || grid[r][c].state !== 'IDLE') continue;
+                    if (grid[r][c+1].type === t && grid[r][c+1].state === 'IDLE' &&
+                        grid[r][c+2].type === t && grid[r][c+2].state === 'IDLE') {
+                        marked[r][c] = marked[r][c+1] = marked[r][c+2] = true;
+                    }
+                }
+            }
+            for (let c = 0; c < COLS; c++) {
+                for (let r = 0; r < ROWS - 2; r++) {
+                    let t = grid[r][c].type;
+                    if (t === -1 || grid[r][c].state !== 'IDLE') continue;
+                    if (grid[r+1][c].type === t && grid[r+1][c].state === 'IDLE' &&
+                        grid[r+2][c].type === t && grid[r+2][c].state === 'IDLE') {
+                        marked[r][c] = marked[r+1][c] = marked[r+2][c] = true;
+                    }
+                }
+            }
+
+            let groups = [];
+            let visited = Array(ROWS).fill().map(() => Array(COLS).fill(false));
+
+            for(let r=0; r<ROWS; r++){
+                for(let c=0; c<COLS; c++){
+                    if(marked[r][c] && !visited[r][c]) {
+                        let group = [];
+                        let queue = [{r,c}];
+                        visited[r][c] = true;
+                        let type = grid[r][c].type;
+                        while(queue.length > 0) {
+                            let curr = queue.shift();
+                            group.push(curr);
+                            let neighbors = [{r:curr.r+1,c:curr.c},{r:curr.r-1,c:curr.c},{r:curr.r,c:curr.c+1},{r:curr.r,c:curr.c-1}];
+                            for(let n of neighbors) {
+                                if(n.r >= 0 && n.r < ROWS && n.c >= 0 && n.c < COLS) {
+                                    if(marked[n.r][n.c] && !visited[n.r][n.c]) {
+                                        if (grid[n.r][n.c].type === type) {
+                                            visited[n.r][n.c] = true;
+                                            queue.push(n);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        groups.push(group);
+                    }
+                }
+            }
+            return groups;
+        }
+
+        function generateLeaderboard() {
+            lbCol1.innerHTML = '';
+            lbCol2.innerHTML = '';
+            
+            let scores = [];
+            bots.forEach(bot => {
+                scores.push({ name: bot.name, score: bot.generateScore(), isUser: false });
+            });
+            scores.push({ name: "YOU", score: score, isUser: true });
+            
+            scores.sort((a,b) => b.score - a.score);
+
+            scores.forEach((entry, idx) => {
+                let div = document.createElement('div');
+                div.className = 'lb-row';
+                if(entry.isUser) div.classList.add('highlight');
+                div.innerHTML = `<span class="lb-rank">#${idx+1}</span><span class="lb-name">${entry.name}</span><span class="lb-score">${entry.score}</span>`;
+                
+                if (idx < 10) {
+                    lbCol1.appendChild(div);
+                } else {
+                    lbCol2.appendChild(div);
+                }
+            });
+        }
+        
+        function startCountdown() {
+            nextRoundCountdown = 15;
+            nextRoundTimerEl.innerText = `Next round in ${nextRoundCountdown}...`;
+            if (leaderboardInterval) clearInterval(leaderboardInterval);
+            leaderboardInterval = setInterval(() => {
+                nextRoundCountdown--;
+                nextRoundTimerEl.innerText = `Next round in ${nextRoundCountdown}...`;
+                if (nextRoundCountdown <= 0) {
+                    clearInterval(leaderboardInterval);
+                    joinTimeAttack(false);
+                }
+            }, 1000);
+        }
+
+        function updateUI() {
+            scoreEl.innerText = score;
+            if (gameMode !== 'time' && score > gameLevel * 1000) {
+                gameLevel++;
+                levelEl.innerText = gameLevel;
+            }
+        }
+
+        // --- Continuous Drag Logic ---
+        function cancelDrag() {
+            inputState.active = false;
+            inputState.startR = -1;
+        }
+
+        function handleStart(x, y) {
+            if (state !== 'PLAYING') return;
+            initAudio(); 
+
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const cx = (x - rect.left) * scaleX;
+            const cy = (y - rect.top) * scaleY;
+            const cw = canvas.width / COLS;
+            const ch = canvas.height / ROWS;
+            
+            let risePixels = (gameMode === 'endless') ? riseOffset * (ch / BLOCK_SIZE) : 0;
+            let c = Math.floor(cx / cw);
+            let r = Math.floor((cy + risePixels) / ch);
+
+            if (r >= 0 && r < ROWS && c >= 0 && c < COLS) {
+                let block = grid[r][c];
+                if (block.type === -1) return;
+                inputState.active = true;
+                inputState.startR = r;
+                inputState.startC = c;
+                inputState.startX = cx;
+                inputState.startY = cy;
+                inputState.offsetX = 0;
+                inputState.offsetY = 0;
+            }
+        }
+
+        function handleMove(x, y) {
+            if (!inputState.active) return;
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const cx = (x - rect.left) * scaleX;
+            const cy = (y - rect.top) * scaleY;
+            let dx = cx - inputState.startX;
+            let dy = cy - inputState.startY;
+            if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0;
+            const cw = canvas.width / COLS;
+            const ch = canvas.height / ROWS;
+            const THRESHOLD = 0.6;
+            if (dx > cw * THRESHOLD) attemptSwap(1, 0); 
+            else if (dx < -cw * THRESHOLD) attemptSwap(-1, 0); 
+            else if (dy > ch * THRESHOLD) attemptSwap(0, 1); 
+            else if (dy < -ch * THRESHOLD) attemptSwap(0, -1); 
+            dx = cx - inputState.startX;
+            dy = cy - inputState.startY;
+            if (Math.abs(dx) > Math.abs(dy)) dy = 0; else dx = 0;
+            inputState.offsetX = dx;
+            inputState.offsetY = dy;
+        }
+
+        function attemptSwap(dirC, dirR) {
+            let r1 = inputState.startR;
+            let c1 = inputState.startC;
+            let r2 = r1 + dirR;
+            let c2 = c1 + dirC;
+            if (r2 >= 0 && r2 < ROWS && c2 >= 0 && c2 < COLS) {
+                let b1 = grid[r1][c1];
+                let b2 = grid[r2][c2];
+                if (b1.state === 'IDLE' && b2.state === 'IDLE') {
+                    grid[r1][c1] = b2;
+                    grid[r2][c2] = b1;
+                    inputState.startR = r2;
+                    inputState.startC = c2;
+                    const cw = canvas.width / COLS;
+                    const ch = canvas.height / ROWS;
+                    inputState.startX += dirC * cw;
+                    inputState.startY += dirR * ch;
+                    if (b2.type !== -1) {
+                        b2.visualOffsetX = dirC * cw;
+                        b2.visualOffsetY = dirR * ch;
+                    }
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function handleEnd() {
+            if (!inputState.active) return;
+            cancelDrag();
+        }
+
+        // --- Rendering ---
+        function draw() {
+            bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+            bgSquares.forEach(s => s.draw(bgCtx));
+
+            ctx.fillStyle = '#1e1e24';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            if (!grid || grid.length < ROWS) return;
+
+            const cw = canvas.width / COLS;
+            const ch = canvas.height / ROWS;
+            let risePixels = (gameMode === 'endless') ? riseOffset * (ch / BLOCK_SIZE) : 0;
+
+            if (gameMode === 'endless' && incomingRow.length > 0) {
+                let y = ROWS * ch - risePixels;
+                for (let c = 0; c < COLS; c++) {
+                    let b = incomingRow[c];
+                    drawBlock(ctx, b.type, b.scale, 0.5, false, c*cw, y, cw, ch);
+                }
+            }
+
+            for (let r = 0; r < ROWS; r++) {
+                if (!grid[r]) continue;
+                for (let c = 0; c < COLS; c++) {
+                    let block = grid[r][c];
+                    if (block && block.type !== -1) {
+                        if (inputState.active && r === inputState.startR && c === inputState.startC) continue;
+                        let rx = c * cw;
+                        let ry = r * ch - risePixels;
+                        rx += block.visualOffsetX;
+                        ry += block.visualOffsetY + block.offsetY;
+                        drawBlock(ctx, block.type, block.scale, block.opacity, false, rx, ry, cw, ch);
+                    }
+                }
+            }
+
+            fadingBlocks.forEach(b => {
+                let rx = b.c * cw;
+                let ry = b.r * ch - risePixels;
+                rx += b.visualOffsetX;
+                ry += b.visualOffsetY + b.offsetY;
+                drawBlock(ctx, b.type, b.scale, b.opacity, true, rx, ry, cw, ch);
+            });
+
+            if (inputState.active) {
+                let r = inputState.startR;
+                let c = inputState.startC;
+                if(r >= 0 && r < ROWS && c >=0 && c < COLS) {
+                    let block = grid[r][c];
+                    if (block && block.type !== -1) {
+                         let rx = c * cw + inputState.offsetX;
+                         let ry = r * ch - risePixels + block.offsetY + inputState.offsetY;
+                         drawBlock(ctx, block.type, block.scale * 1.15, block.opacity, false, rx, ry, cw, ch, true);
+                    }
+                }
+            }
+
+            if (state === 'COUNTDOWN') {
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 80px "Segoe UI"';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                let text = Math.ceil(countdownVal);
+                if (text === 0) text = "GO!";
+                ctx.fillText(text, canvas.width/2, canvas.height/2);
+            }
+        }
+
+        function drawBlock(ctx, type, scale, opacity, isWhite, x, y, w, h, isDragging = false) {
+            let centerX = x + w/2;
+            let centerY = y + h/2;
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.scale(scale, scale);
+            ctx.translate(-centerX, -centerY);
+            ctx.globalAlpha = opacity;
+            let color = isWhite ? '#FFFFFF' : COLORS[type];
+            ctx.shadowBlur = (isWhite || isDragging) ? 25 : 10;
+            ctx.shadowColor = color;
+            ctx.fillStyle = color;
+            const padding = 2;
+            ctx.fillRect(x + padding, y + padding, w - padding*2, h - padding*2);
+            if (!isWhite) {
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fillRect(x + padding, y + padding, w - padding*2, h/2);
+                ctx.fillStyle = 'rgba(0,0,0,0.24)';
+                drawShape(ctx, type, x + w/2, y + h/2, w * 0.28);
+            }
+            ctx.restore();
+        }
+
+        function drawShape(ctx, type, cx, cy, size) {
+            ctx.beginPath();
+            if (type === 0) { // Heart
+                let topCurveHeight = size * 0.3;
+                ctx.moveTo(cx, cy + size * 0.2);
+                ctx.bezierCurveTo(cx, cy - size * 0.3, cx - size, cy - size * 0.3, cx - size, cy + topCurveHeight);
+                ctx.bezierCurveTo(cx - size, cy + (size + topCurveHeight) / 2, cx, cy + size, cx, cy + size);
+                ctx.bezierCurveTo(cx, cy + size, cx + size, cy + (size + topCurveHeight) / 2, cx + size, cy + topCurveHeight);
+                ctx.bezierCurveTo(cx + size, cy - size * 0.3, cx, cy - size * 0.3, cx, cy + size * 0.2);
+            } else if (type === 1) { // Triangle
+                ctx.moveTo(cx, cy - size*0.8);
+                ctx.lineTo(cx + size*0.8, cy + size*0.6);
+                ctx.lineTo(cx - size*0.8, cy + size*0.6);
+            } else if (type === 2) { // Diamond
+                ctx.moveTo(cx, cy - size);
+                ctx.lineTo(cx + size*0.8, cy);
+                ctx.lineTo(cx, cy + size);
+                ctx.lineTo(cx - size*0.8, cy);
+            } else if (type === 3) { // Star
+                for(let i=0; i<5; i++){
+                    ctx.lineTo(Math.cos((18+i*72)/180*Math.PI)*size + cx, -Math.sin((18+i*72)/180*Math.PI)*size + cy);
+                    ctx.lineTo(Math.cos((54+i*72)/180*Math.PI)*size*0.4 + cx, -Math.sin((54+i*72)/180*Math.PI)*size*0.4 + cy);
+                }
+            } else if (type === 4) { // Circle
+                ctx.arc(cx, cy, size * 0.7, 0, Math.PI * 2);
+                ctx.arc(cx, cy, size * 0.4, 0, Math.PI * 2, true);
+            } else if (type === 5) { // Cross
+                let w = size * 0.3; let l = size * 0.8;
+                ctx.rect(cx - w, cy - l, w*2, l*2);
+                ctx.rect(cx - l, cy - w, l*2, w*2);
+            }
+            ctx.fill();
+        }
+
+        canvas.addEventListener('mousedown', e => handleStart(e.clientX, e.clientY));
+        window.addEventListener('mousemove', e => handleMove(e.clientX, e.clientY));
+        window.addEventListener('mouseup', handleEnd);
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); handleStart(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+        window.addEventListener('touchmove', e => { e.preventDefault(); handleMove(e.touches[0].clientX, e.touches[0].clientY); }, {passive: false});
+        window.addEventListener('touchend', handleEnd);
+        window.addEventListener('keydown', e => { if(e.key === 'Enter') manualRise = true; });
+        window.addEventListener('keyup', e => { if(e.key === 'Enter') manualRise = false; });
+
+        // Start Initial Loop for Menu
+        resetToMenu();
+
+    </script>
+</body>
+</html>
